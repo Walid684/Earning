@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EarnMoney - Watch & Play</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body { background-color: #111827; color: white; font-family: sans-serif; }
+        .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; }
+        .btn-primary { background: linear-gradient(to right, #8b5cf6, #ec4899); }
+        .loader { border-top-color: #ec4899; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div id="login-screen" class="text-center w-full max-w-md">
+        <h1 class="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">EarnPro</h1>
+        <p class="text-gray-400 mb-8">Watch Ads, Play Games & Earn Cash</p>
+        
+        <button onclick="googleLogin()" class="w-full bg-white text-gray-900 font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-200 transition">
+            <i class="fab fa-google text-red-500"></i> Login with Google
+        </button>
+        <p class="text-xs text-gray-500 mt-4">Safe & Secure Login via Firebase</p>
+    </div>
+
+    <div id="dashboard-screen" class="hidden w-full max-w-md">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-xl font-bold" id="user-name">Hello, User</h2>
+                <p class="text-xs text-gray-400" id="user-email">Loading...</p>
+            </div>
+            <div class="bg-gray-800 px-4 py-2 rounded-full border border-purple-500 flex items-center gap-2">
+                <i class="fas fa-coins text-yellow-400"></i>
+                <span id="user-balance" class="font-bold">0</span> pts
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div onclick="watchAd()" class="card p-4 cursor-pointer hover:border-green-500 transition text-center group">
+                <div class="bg-green-500/20 w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:bg-green-500/40 transition">
+                    <i class="fas fa-play text-green-400 text-xl"></i>
+                </div>
+                <h3 class="font-bold">Watch Ad</h3>
+                <p class="text-xs text-gray-400">+10 Points</p>
+            </div>
+            <div onclick="playGame()" class="card p-4 cursor-pointer hover:border-purple-500 transition text-center group">
+                <div class="bg-purple-500/20 w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:bg-purple-500/40 transition">
+                    <i class="fas fa-gamepad text-purple-400 text-xl"></i>
+                </div>
+                <h3 class="font-bold">Lucky Tap</h3>
+                <p class="text-xs text-gray-400">+5 Points</p>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-6">
+            <h3 class="font-bold mb-4 border-b border-gray-700 pb-2">Withdraw Money</h3>
+            
+            <label class="text-xs text-gray-400 mb-1 block">Payment Method</label>
+            <select id="payment-method" class="w-full bg-gray-900 p-2 rounded mb-3 border border-gray-700 text-white focus:outline-none focus:border-purple-500">
+                <option value="bkash">bKash</option>
+                <option value="nagad">Nagad</option>
+                <option value="rocket">Rocket</option>
+            </select>
+            
+            <label class="text-xs text-gray-400 mb-1 block">Account Number</label>
+            <input type="number" id="account-number" placeholder="017xxxxxxxx" class="w-full bg-gray-900 p-2 rounded mb-3 border border-gray-700 text-white focus:outline-none focus:border-purple-500">
+            
+            <label class="text-xs text-gray-400 mb-1 block">Points Amount</label>
+            <input type="number" id="amount" placeholder="Min 1000" class="w-full bg-gray-900 p-2 rounded mb-4 border border-gray-700 text-white focus:outline-none focus:border-purple-500">
+            
+            <button onclick="requestWithdraw()" class="w-full btn-primary py-2 rounded font-bold hover:opacity-90 transition">Request Payment</button>
+            <p id="withdraw-msg" class="text-center text-xs mt-2 text-gray-400"></p>
+        </div>
+
+        <button onclick="logout()" class="w-full border border-red-500 text-red-500 py-2 rounded hover:bg-red-500/10 transition">Logout</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- YOUR CONFIGURATION ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyAfWlcUTfoEQIZN0uUvEysn6Bl-yLRUW-U",
+          authDomain: "earning-b7215.firebaseapp.com",
+          projectId: "earning-b7215",
+          storageBucket: "earning-b7215.firebasestorage.app",
+          messagingSenderId: "9316337032",
+          appId: "1:9316337032:web:dfe33d9685934eec23a63d",
+          measurementId: "G-9Z6L345EF1"
+        };
+        // --------------------------
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+
+        // AUTH STATE CHECK
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('dashboard-screen').classList.remove('hidden');
+                
+                // Update UI Info
+                document.getElementById('user-name').innerText = user.displayName;
+                document.getElementById('user-email').innerText = user.email;
+                
+                // Load Balance from DB
+                await loadUserData(user);
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('dashboard-screen').classList.add('hidden');
+            }
+        });
+
+        // GOOGLE LOGIN
+        window.googleLogin = () => {
+            signInWithPopup(auth, provider).catch((error) => {
+                console.error("Login Failed:", error);
+                alert("Login Error: " + error.message);
+            });
+        };
+
+        // LOAD USER DATA
+        async function loadUserData(user) {
+            const userRef = doc(db, "users", user.uid);
+            try {
+                const docSnap = await getDoc(userRef);
+
+                if (docSnap.exists()) {
+                    document.getElementById('user-balance').innerText = docSnap.data().balance;
+                } else {
+                    // Create New User Document
+                    await setDoc(userRef, {
+                        name: user.displayName,
+                        email: user.email,
+                        balance: 0,
+                        joined: new Date()
+                    });
+                    document.getElementById('user-balance').innerText = "0";
+                }
+            } catch (error) {
+                console.error("DB Error:", error);
+                if(error.code === 'permission-denied') {
+                    alert("Database permission denied! Please set Firestore rules to 'true' in Firebase Console.");
+                }
+            }
+        }
+
+        // LOGOUT
+        window.logout = () => signOut(auth);
+
+        // --- EARNING FUNCTIONS ---
+        
+        // 1. WATCH AD (Updated with your Link)
+        window.watchAd = async () => {
+            if (!currentUser) return;
+
+            // Open Monetag Direct Link
+            window.open('https://otieu.com/4/10453862', '_blank');
+
+            // Simulate Ad Timer Logic
+            // In a real app, you'd use a server callback, but this is client-side logic
+            const confirmWatch = confirm("Did you watch the ad completely? Click OK to claim points.");
+            
+            if (confirmWatch) {
+                try {
+                    const userRef = doc(db, "users", currentUser.uid);
+                    await updateDoc(userRef, {
+                        balance: increment(10)
+                    });
+                    
+                    // Update UI Instantly
+                    const currentBal = parseInt(document.getElementById('user-balance').innerText);
+                    document.getElementById('user-balance').innerText = currentBal + 10;
+                    alert("Success! 10 Points added.");
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
+
+        // 2. LUCKY TAP GAME
+        window.playGame = async () => {
+            if (!currentUser) return;
+            
+            // Random chance to win (prevent spamming)
+            // User can earn only once every few seconds logic can be added here
+            
+            try {
+                const userRef = doc(db, "users", currentUser.uid);
+                await updateDoc(userRef, { balance: increment(5) });
+                
+                const currentBal = parseInt(document.getElementById('user-balance').innerText);
+                document.getElementById('user-balance').innerText = currentBal + 5;
+                alert("You tapped and won 5 Points!");
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // --- WITHDRAWAL FUNCTION ---
+        window.requestWithdraw = async () => {
+            if (!currentUser) return;
+
+            const amount = parseInt(document.getElementById('amount').value);
+            const method = document.getElementById('payment-method').value;
+            const number = document.getElementById('account-number').value;
+            const currentBal = parseInt(document.getElementById('user-balance').innerText);
+
+            // Validation
+            if (!number || !amount) {
+                alert("Please fill all fields.");
+                return;
+            }
+            if (currentBal < amount) {
+                alert("Insufficient Balance!");
+                return;
+            }
+            if (amount < 1000) {
+                alert("Minimum withdrawal is 1000 points.");
+                return;
+            }
+
+            try {
+                // 1. Deduct Balance first
+                const userRef = doc(db, "users", currentUser.uid);
+                await updateDoc(userRef, { balance: increment(-amount) });
+                
+                // 2. Create Withdrawal Request
+                await addDoc(collection(db, "withdrawals"), {
+                    userId: currentUser.uid,
+                    userName: currentUser.displayName,
+                    userEmail: currentUser.email,
+                    method: method,
+                    number: number,
+                    amount: amount,
+                    status: "Pending",
+                    requestDate: new Date()
+                });
+
+                // Update UI
+                document.getElementById('user-balance').innerText = currentBal - amount;
+                document.getElementById('withdraw-msg').innerText = "Request Sent! Check admin panel.";
+                document.getElementById('withdraw-msg').className = "text-center text-xs mt-2 text-green-500 font-bold";
+                
+                // Clear inputs
+                document.getElementById('amount').value = '';
+                document.getElementById('account-number').value = '';
+
+            } catch (e) {
+                console.error(e);
+                alert("Error processing request: " + e.message);
+            }
+        };
+    </script>
+</body>
+</html>
